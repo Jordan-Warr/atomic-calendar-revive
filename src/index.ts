@@ -369,12 +369,27 @@ export class AtomicCalendarRevive extends LitElement {
 					typeof event.entityConfig.color != 'undefined' ? event.entityConfig.color : this._config.defaultCalColor;
 
 				//show calendar name
-				const eventCalName =
-					event.entityConfig.name && this._config.showCalendarName
-						? html`<div class="event-cal-name" style="color: ${calColor};">
+				let eventCalName: any = ``;
+
+				if (event.profiles && event.profiles.length > 0) {
+					const sharedStyles = 'background-size: contain; width: 25px; height: 25px; border-radius: 50px; float: right; margin-left: 5px;'
+					eventCalName = html`
+						<div class="event-cal-name">
+							${event.profiles.map((profile) => {
+								return html`<div style="${sharedStyles} background-image: url(${profile});" />`
+							})}
+						</div>
+					`
+				} else {
+					eventCalName =
+						event.entityConfig.name && this._config.showCalendarName
+							? html`<div class="event-cal-name" style="color: ${calColor};">
 								<ha-icon icon="mdi:calendar" class="event-cal-name-icon"></ha-icon>&nbsp;${event.originName}
 							</div>`
-						: ``;
+							: ``;
+				}
+
+
 
 				//show current event progress bar
 				let progressBar = html``;
