@@ -176,39 +176,30 @@ export async function getAllEvents(
 
 		// make all requests at the same time
 		calendarEntityPromises.push(
-			{
-				cal: hass
+			hass
 				.callApi('GET', url)
-					.then((rawEvents) => {
-						rawEvents.map((event) => {
-							event.entity = entity;
-							event.calendarEntity = calendarEntity;
-							event.hassEntity = hass.states[calendarEntity];
-						});
-						return rawEvents;
-					})
-					.then((events) => {
-						allEvents.push(...events);
-					})
-					.catch((error) => {
-						failedEvents.push({
-							name: entity.name || calendarEntity,
-							error,
-						});
-					}),
-				profiles: hass.callApi('GET', url)
 				.then((rawEvents) => {
-					console.log('RAW EVENTS', rawEvents);
+					rawEvents.map((event) => {
+						event.entity = entity;
+						event.calendarEntity = calendarEntity;
+						event.hassEntity = hass.states[calendarEntity];
+					});
 					return rawEvents;
 				})
-			}
+				.then((events) => {
+					allEvents.push(...events);
+				})
+				.catch((error) => {
+					failedEvents.push({
+						name: entity.name || calendarEntity,
+						error,
+					});
+				}),
 		);
 	});
 
 	await Promise.all(calendarEntityPromises);
-	const events = processEvents(allEvents, config, mode, hass);
-	console.log('EVENTS', events);
-	return { failedEvents, events: events };
+	return { failedEvents, events: processEvents(allEvents, config, mode) };
 }
 
 /**
@@ -216,7 +207,7 @@ export async function getAllEvents(
  * @param {Array<Events>} list of raw caldav calendar events
  * @return {Promise<Array<EventClass>>}
  */
-export function processEvents(allEvents: any[], config: atomicCardConfig, mode: 'Event' | 'Calendar', hass) {
+export function processEvents(allEvents: any[], config: atomicCardConfig, mode: 'Event' | 'Calendar') {
 	let hiddenEvents: number = 0;
 	// reduce all the events into the ones we care about
 	// events = all the events we care about
@@ -225,20 +216,6 @@ export function processEvents(allEvents: any[], config: atomicCardConfig, mode: 
 		calEvent.originCalendar = config.entities.find((entity) => entity.entity === calEvent.entity.entity);
 
 		const newEvent: EventClass = new EventClass(calEvent, config);
-		// const profiles = newEvent.entityConfig.profiles as string[];
-		// console.log('PROFILES', profiles);
-		// if (profiles && profiles.length > 0) {
-		// 	for (const profile of profiles) {
-		// 		console.log('Profile', profile);
-		// 		const url = `states/${profile}`;
-
-		// 		await hass.callApi('GET', url)
-		// 			.then((rawEvents) => {
-		// 				console.log('RAW EVENTS', rawEvents);
-		// 				return rawEvents;
-		// 			});
-		// 	}
-		// }
 
 		// we need to filter the dates again or all day events will be wrong
 		// this is due to the API only bringing a date for full day events
