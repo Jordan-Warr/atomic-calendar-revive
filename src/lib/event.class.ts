@@ -39,6 +39,14 @@ export default class EventClass {
 		return this._eventClass.entity || {};
 	}
 
+	get profiles() {
+		return this._eventClass.entity.profiles || {};
+	}
+
+	set profiles(profiles: string[]) {
+		this._eventClass.entity.profiles = profiles;
+	}
+
 	set originName(value: string) {
 		this._customOriginName = value;
 	}

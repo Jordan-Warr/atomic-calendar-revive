@@ -161,7 +161,13 @@ export async function getAllEvents(
 	const allEvents: any[] = [];
 	const failedEvents: any[] = [];
 
+
 	const calendarEntityPromises: any[] = [];
+	const profilePromises: any[] = [];
+
+	const allProfiles = new Set<string>();
+	const profileUrls = new Map<string, string>();
+
 	config.entities.map((entity) => {
 		const calendarEntity = (entity && entity.entity) || entity;
 
@@ -173,6 +179,10 @@ export async function getAllEvents(
 				: start.endOf('day').add(daysToShow, 'day').format(dateFormat);
 
 		const url: string = `calendars/${entity.entity}?start=${startTime}&end=${endTime}`;
+
+		for (const profile of entity.profiles) {
+			allProfiles.add(profile);
+		}
 
 		// make all requests at the same time
 		calendarEntityPromises.push(
@@ -198,8 +208,20 @@ export async function getAllEvents(
 		);
 	});
 
+	for (const profile of allProfiles.values()) {
+		const profileUrl = `states/${profile}`;
+		profilePromises.push(
+			hass
+				.callApi('GET', profileUrl)
+				.then((rawProfile) => {
+					profileUrls.set(profile, rawProfile.attributes.entity_picture);
+				})
+		)
+	}
+
 	await Promise.all(calendarEntityPromises);
-	return { failedEvents, events: processEvents(allEvents, config, mode) };
+	await Promise.all(profilePromises);
+	return { failedEvents, events: processEvents(allEvents, config, profileUrls, mode) };
 }
 
 /**
@@ -207,7 +229,7 @@ export async function getAllEvents(
  * @param {Array<Events>} list of raw caldav calendar events
  * @return {Promise<Array<EventClass>>}
  */
-export function processEvents(allEvents: any[], config: atomicCardConfig, mode: 'Event' | 'Calendar') {
+export function processEvents(allEvents: any[], config: atomicCardConfig, profiles: Map<string, string>, mode: 'Event' | 'Calendar') {
 	let hiddenEvents: number = 0;
 	// reduce all the events into the ones we care about
 	// events = all the events we care about
@@ -326,6 +348,27 @@ export function processEvents(allEvents: any[], config: atomicCardConfig, mode: 
 				// Check if eventMap[eventIdentifier] is defined
 				event.originName = eventMap[eventIdentifier].calendars.join(', ');
 			}
+		});
+
+		newEvents = updatedEvents;
+	}
+
+	const updatedEvents: any[] = [];
+
+	// if profiles is not empty then loop through events and add the profile URL to the necessary events
+	if (profiles.size > 0) {
+		newEvents.forEach(event => {
+			if (event.profiles && event.profiles.length > 0) {
+				event.profiles = event.profiles.map((profile) => {
+					if (profile.startsWith('/api/image')) {
+						return profile;
+					} else {
+						return profiles.get(profile);
+					}
+				});
+			}
+
+			updatedEvents.push(event);
 		});
 
 		newEvents = updatedEvents;
